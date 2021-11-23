@@ -6,8 +6,8 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Session;
 
 class UserController extends Controller
 {
@@ -16,73 +16,42 @@ class UserController extends Controller
      */
     public function register(Request $request)
     {
-        try {
-            $user = new User();
-            $user->name = $request->name;
-            $user->email = $request->email;
-            $user->password = Hash::make($request->password);
-            $user->save();
+        $request->validate([
+            'email' => ['required', 'email', 'unique:users'],
+            'password' => ['required', 'min:8']
+        ]);
 
-            $success = true;
-            $message = 'User register successfully';
-        } catch (\Illuminate\Database\QueryException $ex) {
-            $success = false;
-            $message = $ex->getMessage();
-        }
-
-        // response
-        $response = [
-            'success' => $success,
-            'message' => $message,
-        ];
-        return response()->json($response);
+        User::create([
+            'email' => $request->email,
+            'password' => Hash::make($request->password)
+        ]);
     }
 
     /**
-     * Login
+     * login
      */
     public function login(Request $request)
     {
-        $credentials = [
-            'email' => $request->email,
-            'password' => $request->password,
-        ];
+        $request->validate([
+            'email' => ['required'],
+            'password' => ['required']
+        ]);
 
-        if (Auth::attempt($credentials)) {
-            $success = true;
-            $message = 'User login successfully';
-        } else {
-            $success = false;
-            $message = 'Unauthorised';
+        if (Auth::attempt($request->only('email', 'password'))) {
+            return response()->json(Auth::user(), 200);
         }
 
-        // response
-        $response = [
-            'success' => $success,
-            'message' => $message,
-        ];
-        return response()->json($response);
+        throw ValidationException::withMessages([
+            'email' => ['The provided credentials are incorrect.']
+        ]);
     }
+
 
     /**
      * Logout
      */
     public function logout()
     {
-        try {
-            Session::flush();
-            $success = true;
-            $message = 'Successfully logged out';
-        } catch (\Illuminate\Database\QueryException $ex) {
-            $success = false;
-            $message = $ex->getMessage();
-        }
-
-        // response
-        $response = [
-            'success' => $success,
-            'message' => $message,
-        ];
-        return response()->json($response);
+        Auth::logout();
     }
 }
